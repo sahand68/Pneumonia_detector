@@ -23,9 +23,57 @@ def index():
     # Main page
     return render_template('index.html')
 
-model = load_model(MODEL_PATH)
+
+
+def create_downsample(channels, inputs):
+    x = tf.keras.layers.BatchNormalization()(inputs)
+    x = tf.keras.layers.LeakyReLU(0)(x)
+    x = tf.keras.layers.Conv2D(channels, 1, padding='same', use_bias=False)(x)
+    x = tf.keras.layers.MaxPool2D(2)(x)
+    return x
+
+def create_resblock(channels, inputs):
+    x = tf.keras.layers.BatchNormalization()(inputs)
+    x = tf.keras.layers.LeakyReLU(0)(x)
+    x = tf.keras.layers.Conv2D(channels, 3, padding='same', use_bias=False)(x)
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.LeakyReLU(0)(x)
+    x = tf.keras.layers.Conv2D(channels, 3, padding='same', use_bias=False)(x)
+    return tf.keras.layers.add([x, inputs])
+
+def create_network(input_size, channels, n_blocks=2, depth=5):
+    # input
+    inputs = tf.keras.Input(shape=(input_size, input_size, 1))
+    x = tf.keras.layers.Conv2D(channels, 3, padding='same', use_bias=False)(inputs)
+    # residual blocks
+    for d in range(depth):
+        channels = channels * 2
+        x = create_downsample(channels, x)
+        for b in range(n_blocks):
+            x = create_resblock(channels, x)
+    # output
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.LeakyReLU(0)(x)
+    x = tf.keras.layers.Conv2D(1, 1, activation='sigmoid')(x)
+    outputs = tf.keras.layers.UpSampling2D(2**depth)(x)
+    model = tf.keras.Model(inputs=inputs, outputs=outputs)
+    return model
+
+def mean_iou(y_true, y_pred):
+    y_pred = tf.round(y_pred)
+    intersect = tf.reduce_sum(y_true * y_pred, axis=[1, 2, 3])
+    union = tf.reduce_sum(y_true, axis=[1, 2, 3]) + tf.reduce_sum(y_pred, axis=[1, 2, 3])
+    smooth = tf.ones(tf.shape(intersect))
+    return tf.reduce_mean((intersect + smooth) / (union - intersect + smooth))
+
+
+model = create_network(input_size=256, channels=32, n_blocks=2, depth=4)
+model.compile(optimizer=tf.keras.optimizers.Adam(lr=.01),loss=tf.keras.losses.binary_crossentropy,metrics=['accuracy', mean_iou])
+model.load_weights(MODEL_PATH)
 model._make_predict_function()          # Necessary
 print('Model loaded. Start serving...')
+
+
 
 def model_predict(images_path,model):
     # images_path = 'data/stage_2_test_images'
