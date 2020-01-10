@@ -51,7 +51,7 @@ def model_predict(images_path,model):
                     # retrieve x, y, height and width
             y, x, y2, x2 = region.bbox
             height = y2 - y
-            predictions['patientId'] = filename.split('.')[0])
+            predictions['patientId'] = filename.split('.')[0]
             predictions['x']=x
             predictions['y'] = y
             predictions['height'] = height
@@ -134,7 +134,7 @@ def upload():
             basepath, 'uploads', secure_filename(f.filename))
         f.save(file_path)
         # Output file path
-        file_output_path = 'os.path.join(basepath, 'uploads', 'predictions.csv')'
+        file_output_path = os.path.join(basepath, 'uploads', 'predictions.csv')
         # Make prediction
         preds = model_predict(file_path, model)
         parsed_test = parse_data(preds)
