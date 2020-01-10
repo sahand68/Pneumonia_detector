@@ -78,15 +78,11 @@ print('Model loaded. Start serving...')
 def model_predict(images_path,model):
     # images_path = 'data/stage_2_test_images'
     predictions = pd.DataFrame()
-
-
     img = pydicom.dcmread(images_path).pixel_array
     # resize image
     img = resize(img, (256, 256), mode='reflect')
     # add trailing channel dimension
     img = np.expand_dims(img, -1)
-    # test_filenames  = os.listdir(images_path)
-    test_gen = generator(images_path, test_filenames, None, batch_size=25, image_size=256, shuffle=False, predict=True)
     with tf.device("/gpu:0"):
         preds = model.predict(img)
         pred = resize(pred, (1024, 1024), mode='reflect')
