@@ -100,7 +100,7 @@ def model_predict(images_path,model):
             predictions['y'] = y
             predictions['height'] = height
             predictions['width']  = x2 - x
-            w_.append(width)
+          
             conf = np.mean(pred[y:y + height, x:x + width])
             predictions['Target'] = conf
             predictions['Target'].values[predictions['Target'].values > 0.5] = 1
