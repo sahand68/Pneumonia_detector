@@ -1,0 +1,12 @@
+Werkzeug
+Flask
+numpy
+pydicom
+gevent
+pillow
+h5py
+scikit-image
+opencv-contrib-python
+tensorflow
+matplotlib
+pandas

@@ -6,9 +6,9 @@ import os
 from skimage import measure
 from skimage.transform import resize
 import tensorflow as tf
-from tensorflow.keras.models import load_model
+#from tf.keras.models import load_model
 from flask import Flask, redirect, url_for, request, render_template, send_file
-
+import cv2
 from werkzeug.utils import secure_filename
 from gevent.pywsgi import WSGIServer
 verbose = True
@@ -79,14 +79,16 @@ def model_predict(images_path,model):
     # images_path = 'data/stage_2_test_images'
     predictions = pd.DataFrame()
     img = pydicom.dcmread(images_path).pixel_array
+    print('dicom converted')
     # resize image
     img = resize(img, (256, 256), mode='reflect')
     # add trailing channel dimension
     img = np.expand_dims(img, -1)
     preds = model.predict(img)
-    pred = resize(pred, (1024, 1024), mode='reflect')
+    print('predictions made')
+    preds = resize(preds, (1024, 1024), mode='reflect')
     # threshold predicted mask
-    comp = pred[:, :, 0] > 0.5
+    comp = preds[:, :, 0] > 0.5
     # apply connected components
     comp = measure.label(comp)
     # apply bounding boxes
@@ -94,13 +96,12 @@ def model_predict(images_path,model):
                 # retrieve x, y, height and width
         y, x, y2, x2 = region.bbox
         height = y2 - y
-        predictions['patientId'] = filename.split('.')[0]
+        predictions['patientId'] = images_path.split('.')[0]
         predictions['x']=x
         predictions['y'] = y
         predictions['height'] = height
         predictions['width']  = x2 - x
-        w_.append(width)
-        conf = np.mean(pred[y:y + height, x:x + width])
+        conf = np.mean(preds[y:y + height, x:x + predictions['width']])
         predictions['Target'] = conf
         predictions['Target'].values[predictions['Target'].values > 0.5] = 1
 
@@ -126,7 +127,7 @@ def parse_data(df):
     return parsed
 
 
-def draw(data):
+def draw(data, file_output_path):
     """
     Method to draw single patient with bounding box(es) if present
 
@@ -143,9 +144,11 @@ def draw(data):
         # rgb = np.floor(np.random.rand(3) * 256).astype('int')
         rgb = [255, 251, 204]  # Just use yellow
         im = overlay_box(im=im, box=box, rgb=rgb, stroke=15)
-
-    plt.imshow(im, cmap=plt.cm.gist_gray)
-    plt.axis('off')
+    
+        cv2.imwrite(file_output_path,im)
+        print('cv2.imwrite is done')
+    #plt.imshow(im, cmap=plt.cm.gist_gray)
+    #plt.axis('off')
 
 
 def overlay_box(im, box, rgb, stroke=2):
@@ -166,9 +169,11 @@ def overlay_box(im, box, rgb, stroke=2):
     im[y1:y2, x2:x2 + stroke] = rgb
 
     return im
-@app.route('/predict', methods=['GET', 'POST'])
+@app.route('/', methods=['GET', 'POST'])
 def upload():
     if request.method == 'POST':
+        print('post is done')
+
         # Get the file from post request
         f = request.files['file']
         # Save the file to ./uploads
@@ -177,16 +182,15 @@ def upload():
             basepath, 'uploads', secure_filename(f.filename))
         f.save(file_path)
         # Output file path
-        file_output_path = os.path.join(basepath, 'uploads', 'predictions.csv')
+        file_output_path = os.path.join(basepath, 'uploads', 'prediction.png')
         # Make prediction
         preds = model_predict(file_path, model)
+        print('preds are ready')
         parsed_test = parse_data(preds)
+        print('image is parsed')
         # Write to uploads directory
         plt.style.use('default')
-        fig = plt.figure(figsize=(12, 20))
-        draw(parsed_test)
-        plt.show()
-        preds.to_csv(file_output_path, index=False)
+        draw(parsed_test, file_output_path)
         # Delete uploaded file
         os.remove(file_path)
         return file_output_path
@@ -204,7 +208,10 @@ def get_image():
 
 if __name__ == '__main__':
     # Serve the app with gevent
+    app.run(debug=True)
+
     http_server = WSGIServer(('', 5000), app)
+
     http_server.serve_forever()
 
 
