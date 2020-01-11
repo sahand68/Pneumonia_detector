@@ -171,30 +171,29 @@ def overlay_box(im, box, rgb, stroke=2):
     return im
 @app.route('/', methods=['GET', 'POST'])
 def upload():
-    if request.method == 'POST':
-        print('post is done')
+    print('post is done')
 
-        # Get the file from post request
-        f = request.files['file']
-        # Save the file to ./uploads
-        basepath = os.path.dirname(__file__)
-        file_path = os.path.join(
-            basepath, 'uploads', secure_filename(f.filename))
-        f.save(file_path)
-        # Output file path
-        file_output_path = os.path.join(basepath, 'uploads', 'prediction.png')
-        # Make prediction
-        preds = model_predict(file_path, model)
-        print('preds are ready')
-        parsed_test = parse_data(preds)
-        print('image is parsed')
-        # Write to uploads directory
-        plt.style.use('default')
-        draw(parsed_test, file_output_path)
-        # Delete uploaded file
-        os.remove(file_path)
-        return file_output_path
-    return None
+    # Get the file from post request
+    f = request.files['file']
+    # Save the file to ./uploads
+    basepath = os.path.dirname(__file__)
+    file_path = os.path.join(
+    basepath, 'uploads', secure_filename(f.filename))
+    f.save(file_path)
+    # Output file path
+    file_output_path = os.path.join(basepath, 'uploads', 'prediction.png')
+    # Make prediction
+    preds = model_predict(file_path, model)
+    print('preds are ready')
+    parsed_test = parse_data(preds)
+    print('image is parsed')
+    # Write to uploads directory
+    plt.style.use('default')
+    draw(parsed_test, file_output_path)
+    # Delete uploaded file
+    os.remove(file_path)
+    return file_output_path
+
 
 # Callback to grab an image given a local path
 @app.route('/get_image')
