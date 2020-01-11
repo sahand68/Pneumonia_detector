@@ -115,7 +115,7 @@ def parse_data(df):
         pid = row['patientId']
         if pid not in parsed:
             parsed[pid] = {
-                'dicom': 'data/stage_2_test_images/%s.dcm' % pid,
+                'dicom': 'uploads/%s.dcm' % pid,
                 'label': row['Target'],
                 'boxes': []}
 
