@@ -1,23 +1,33 @@
-import numpy as np
-import pandas as pd
+#!/usr/bin/env python
+# coding: utf-8
+
+# In[1]:
+
+
+
+import numpy as np # linear algebra
+import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
 import matplotlib.pylab as plt
 import pydicom
 import os
+from os import listdir
+from os.path import isfile, join
+import matplotlib.pyplot as plt
+import tensorflow as tf
 from skimage import measure
 from skimage.transform import resize
-import tensorflow as tf
-#from tf.keras.models import load_model
+import csv
+import random
 from flask import Flask, redirect, url_for, request, render_template, send_file
+from gevent.pywsgi import WSGIServer
 import cv2
 from werkzeug.utils import secure_filename
-from gevent.pywsgi import WSGIServer
-verbose = True
+
+# Any results you write to the current directory are saved as output.
 
 # Define a flask app
 app = Flask(__name__)
 
-# Model saved with Keras model.save()
-MODEL_PATH = 'model/model.h5'
 @app.route('/', methods=['GET'])
 def index():
     # Main page
@@ -25,6 +35,206 @@ def index():
 
 
 
+# In[4]:
+
+
+# Forked from `https://www.kaggle.com/peterchang77/exploratory-data-analysis`
+def parse_data(df, test = False):
+    """
+    Method to read a CSV file (Pandas dataframe) and parse the 
+    data into the following nested dictionary:
+
+      parsed = {
+        
+        'patientId-00': {
+            'dicom': path/to/dicom/file,
+            'label': either 0 or 1 for normal or pnuemonia, 
+            'boxes': list of box(es)
+        },
+        'patientId-01': {
+            'dicom': path/to/dicom/file,
+            'label': either 0 or 1 for normal or pnuemonia, 
+            'boxes': list of box(es)
+        }, ...
+
+      }
+
+    """
+    # --- Define lambda to extract coords in list [y, x, height, width]
+    extract_box = lambda row: [row['y'], row['x'], row['height'], row['width']]
+
+    parsed = {}
+    if not test:
+      for n, row in df.iterrows():
+          # --- Initialize patient entry into parsed 
+          pid = row['patientId']
+          if pid not in parsed:
+              parsed[pid] = {
+                  'dicom': 'data/stage_2_train_images/%s.dcm' % pid,
+                  'label': row['Target'],
+                  'boxes': []}
+
+          # --- Add box if opacity is present
+          if parsed[pid]['label'] == 1:
+              parsed[pid]['boxes'].append(extract_box(row))
+    else:
+      for n, row in df.iterrows():
+          # --- Initialize patient entry into parsed 
+          pid = row['patientId']
+          if pid not in parsed:
+              parsed[pid] = {
+                  'dicom': 'uploads/%s.dcm' % pid,
+                  'label': row['Target'],
+                  'boxes': []}
+
+          # --- Add box if opacity is present
+          if parsed[pid]['label'] == 1:
+              parsed[pid]['boxes'].append(extract_box(row))
+
+    return parsed
+
+
+def draw(data):
+    """
+    Method to draw single patient with bounding box(es) if present 
+
+    """
+    # --- Open DICOM file
+    d = pydicom.read_file(data['dicom'])
+    im = d.pixel_array
+
+    # --- Convert from single-channel grayscale to 3-channel RGB
+    im = np.stack([im] * 3, axis=2)
+
+    # --- Add boxes with random color if present
+    for box in data['boxes']:
+        #rgb = np.floor(np.random.rand(3) * 256).astype('int')
+        rgb = [255, 251, 204] # Just use yellow
+        im = overlay_box(im=im, box=box, rgb=rgb, stroke=15)
+
+    file_name = '{}.png'.format(data['dicom'].split('.')[0])
+    cv2.imwrite(file_name, im)
+    plt.imshow(im, cmap=plt.cm.gist_gray)
+    plt.axis('off')
+    return file_name
+
+def overlay_box(im, box, rgb, stroke=2):
+    """
+    Method to overlay single box on image
+
+    """
+    # --- Convert coordinates to integers
+    box = [int(b) for b in box]
+    
+    # --- Extract coordinates
+    y1, x1, height, width = box
+    y2 = y1 + height
+    x2 = x1 + width
+
+    im[y1:y1 + stroke, x1:x2] = rgb
+    im[y2:y2 + stroke, x1:x2] = rgb
+    im[y1:y2, x1:x1 + stroke] = rgb
+    im[y1:y2, x2:x2 + stroke] = rgb
+
+    return im
+
+
+# In[5]:
+
+
+import tensorflow as tf
+class generator(tf.keras.utils.Sequence):
+    
+    def __init__(self, folder, filenames, nodule_locations=None, batch_size=32, image_size=512, shuffle=True, predict=False, augment = False):
+        self.folder = folder
+        self.filenames = filenames
+        self.nodule_locations = nodule_locations
+        self.batch_size = batch_size
+        self.image_size = image_size
+        self.augment = augment
+        self.shuffle = shuffle
+        self.predict = predict
+        self.on_epoch_end()
+        
+    def __load__(self, filename):
+        # load dicom file as numpy array
+        nodule_locations={}
+        img = pydicom.dcmread(os.path.join(self.folder, filename)).pixel_array
+        # create empty mask
+        msk = np.zeros(img.shape)
+        # get filename without extension
+        filename = filename.split('.')[0]
+        # if image contains nodules
+        if filename in nodule_locations:
+            # loop through nodules
+            for location in nodule_locations[filename]:
+                # add 1's at the location of the nodule
+                x, y, w, h = location
+                msk[y:y+h, x:x+w] = 1
+        # resize both image and mask
+        img = resize(img, (self.image_size, self.image_size), mode='reflect')
+        msk = resize(msk, (self.image_size, self.image_size), mode='reflect') > 0.5
+        # if augment then horizontal flip half the time
+        if self.augment and random.random() > 0.5:
+            img = np.fliplr(img)
+            msk = np.fliplr(msk)
+        # add trailing channel dimension
+        img = np.expand_dims(img, -1)
+        msk = np.expand_dims(msk, -1)
+        return img, msk
+    
+    def __loadpredict__(self, filename):
+        # load dicom file as numpy array
+        img = pydicom.dcmread(os.path.join(self.folder, filename)).pixel_array
+        # resize image
+        img = resize(img, (self.image_size, self.image_size), mode='reflect')
+        # add trailing channel dimension
+        img = np.expand_dims(img, -1)
+        return img
+        
+    def __getitem__(self, index):
+        # select batch
+        filenames = self.filenames[index*self.batch_size:(index+1)*self.batch_size]
+        # predict mode: return images and filenames
+        if self.predict:
+            # load files
+            imgs = [self.__loadpredict__(filename) for filename in filenames]
+            # create numpy batch
+            imgs = np.array(imgs)
+            return imgs, filenames
+        # train mode: return images and masks
+        else:
+            # load files
+            items = [self.__load__(filename) for filename in filenames]
+            # unzip images and masks
+            imgs, msks = zip(*items)
+            # create numpy batch
+            imgs = np.array(imgs)
+            msks = np.array(msks)
+            return imgs, msks
+        
+    def on_epoch_end(self):
+        if self.shuffle:
+            random.shuffle(self.filenames)
+        
+    def __len__(self):
+        if self.predict:
+            # return everything
+            return int(np.ceil(len(self.filenames) / self.batch_size))
+        else:
+            # return full batches only
+            return int(len(self.filenames) / self.batch_size)
+
+
+# In[6]:
+
+
+def mean_iou(y_true, y_pred):
+    y_pred = tf.round(y_pred)
+    intersect = tf.reduce_sum(y_true * y_pred, axis=[1, 2, 3])
+    union = tf.reduce_sum(y_true, axis=[1, 2, 3]) + tf.reduce_sum(y_pred, axis=[1, 2, 3])
+    smooth = tf.ones(tf.shape(intersect))
+    return tf.reduce_mean((intersect + smooth) / (union - intersect + smooth))
 def create_downsample(channels, inputs):
     x = tf.keras.layers.BatchNormalization()(inputs)
     x = tf.keras.layers.LeakyReLU(0)(x)
@@ -59,140 +269,81 @@ def create_network(input_size, channels, n_blocks=2, depth=5):
     model = tf.keras.Model(inputs=inputs, outputs=outputs)
     return model
 
-def mean_iou(y_true, y_pred):
-    y_pred = tf.round(y_pred)
-    intersect = tf.reduce_sum(y_true * y_pred, axis=[1, 2, 3])
-    union = tf.reduce_sum(y_true, axis=[1, 2, 3]) + tf.reduce_sum(y_pred, axis=[1, 2, 3])
-    smooth = tf.ones(tf.shape(intersect))
-    return tf.reduce_mean((intersect + smooth) / (union - intersect + smooth))
+
+# In[9]:
 
 
-model = create_network(input_size=256, channels=32, n_blocks=2, depth=4)
-model.compile(optimizer=tf.keras.optimizers.Adam(lr=.01),loss=tf.keras.losses.binary_crossentropy,metrics=['accuracy', mean_iou])
-model.load_weights(MODEL_PATH)
-model._make_predict_function()          # Necessary
-print('Model loaded. Start serving...')
-
-
-
-def model_predict(images_path,model):
-    # images_path = 'data/stage_2_test_images'
-    predictions = pd.DataFrame()
-    img = pydicom.dcmread(images_path).pixel_array
-    print('dicom converted')
-    # resize image
-    img = resize(img, (256, 256), mode='reflect')
-    # add trailing channel dimension
-    img = np.expand_dims(img, -1)
-    preds = model.predict(img)
-    print('predictions made')
-    preds = resize(preds, (1024, 1024), mode='reflect')
-    # threshold predicted mask
-    comp = preds[:, :, 0] > 0.5
-    # apply connected components
-    comp = measure.label(comp)
-    # apply bounding boxes
-    for region in measure.regionprops(comp):
-                # retrieve x, y, height and width
-        y, x, y2, x2 = region.bbox
-        height = y2 - y
-        predictions['patientId'] = images_path.split('.')[0]
-        predictions['x']=x
-        predictions['y'] = y
-        predictions['height'] = height
-        predictions['width']  = x2 - x
-        conf = np.mean(preds[y:y + height, x:x + predictions['width']])
-        predictions['Target'] = conf
-        predictions['Target'].values[predictions['Target'].values > 0.5] = 1
-
-    return predictions
-
-def parse_data(df):
-    parsed = {}
-    extract_box = lambda row: [row['y'], row['x'], row['height'], row['width']]
-
-    for n, row in df.iterrows():
-        # --- Initialize patient entry into parsed
-        pid = row['patientId']
-        if pid not in parsed:
-            parsed[pid] = {
-                'dicom': 'uploads/%s.dcm' % pid,
-                'label': row['Target'],
-                'boxes': []}
-
-        # --- Add box if opacity is present
-        if parsed[pid]['label'] == 1:
-            parsed[pid]['boxes'].append(extract_box(row))
-
-    return parsed
-
-
-def draw(data, file_output_path):
-    """
-    Method to draw single patient with bounding box(es) if present
-
-    """
-    # --- Open DICOM file
-    d = pydicom.read_file(data['dicom'])
-    im = d.pixel_array
-
-    # --- Convert from single-channel grayscale to 3-channel RGB
-    im = np.stack([im] * 3, axis=2)
-
-    # --- Add boxes with random color if present
-    for box in data['boxes']:
-        # rgb = np.floor(np.random.rand(3) * 256).astype('int')
-        rgb = [255, 251, 204]  # Just use yellow
-        im = overlay_box(im=im, box=box, rgb=rgb, stroke=15)
-    
-        cv2.imwrite(file_output_path,im)
-        print('cv2.imwrite is done')
-    #plt.imshow(im, cmap=plt.cm.gist_gray)
-    #plt.axis('off')
-
-
-def overlay_box(im, box, rgb, stroke=2):
-    """
-    Method to overlay single box on image
-    """
-    # --- Convert coordinates to integers
-    box = [int(b) for b in box]
-
-    # --- Extract coordinates
-    y1, x1, height, width = box
-    y2 = y1 + height
-    x2 = x1 + width
-
-    im[y1:y1 + stroke, x1:x2] = rgb
-    im[y2:y2 + stroke, x1:x2] = rgb
-    im[y1:y2, x1:x1 + stroke] = rgb
-    im[y1:y2, x2:x2 + stroke] = rgb
-
-    return im
-@app.route('/', methods=['GET', 'POST'])
-def upload():
-    print('post is done')
-
-    # Get the file from post request
+def predict():
     f = request.files['file']
+
     # Save the file to ./uploads
     basepath = os.path.dirname(__file__)
-    file_path = os.path.join(
-    basepath, 'uploads', secure_filename(f.filename))
+    file_path = os.path.join(basepath, 'uploads', secure_filename(f.filename))
     f.save(file_path)
-    # Output file path
-    file_output_path = os.path.join(basepath, 'uploads', 'prediction.png')
-    # Make prediction
-    preds = model_predict(file_path, model)
-    print('preds are ready')
-    parsed_test = parse_data(preds)
-    print('image is parsed')
-    # Write to uploads directory
+    test_filenames = os.listdir('uploads')
+    print(test_filenames)
+    k_=[]
+    x_= []
+    y_ =[]
+    w_ =[]
+    h_ =[]
+    t_= []
+    area = []
+    # create test generator with predict flag set to True
+    test_gen = generator('uploads' ,test_filenames, None, batch_size=1, image_size=512, shuffle=False, predict=True)
+    for imgs, filenames in test_gen:
+        # predict batch of images
+        model = create_network(input_size=512, channels=32, n_blocks=2, depth=4)
+        model.load_weights("model/model.h5")
+        preds = model.predict(imgs)
+        for pred, filename in zip(preds, filenames):
+            # resize predicted mask
+            pred = resize(pred, (1024, 1024), mode='reflect')
+            # threshold predicted mask
+            comp = pred[:, :, 0] > -1
+            # apply connected components
+            comp = measure.label(comp)
+            # apply bounding boxes
+            for region in measure.regionprops(comp):
+                # retrieve x, y, height and width
+                y, x, y2, x2 = region.bbox
+                height = y2 - y
+                k_.append(filename.split('.')[0])
+                x_.append(x)
+                y_.append(y)
+                h_.append(height)
+                width = x2 - x
+                w_.append(width)
+                conf = np.mean(pred[y:y+height, x:x+width])
+                area.append(width*height)
+                t_.append(conf)
+        # if len(x_) >= len(test_filenames):
+        #     break
+    test_predictions = pd.DataFrame()
+    test_predictions['patientId'] = k_
+    test_predictions['x'] =x_
+    test_predictions['y'] =y_
+    test_predictions['width'] =w_
+    test_predictions['height']=h_
+    test_predictions['Target'] = t_
+    test_predictions['area'] = area
+    return test_predictions
+
+
+# ### testing shows that model is not trained enough to make predictions
+# 
+
+# In[ ]:
+
+@app.route('/predict', methods=['GET', 'POST'])
+def make_preds():
+    test_predictions = predict()
+    test_predictions['Target'].values[test_predictions['Target'].values > 0.5] = 1
+    parsed_test= parse_data(test_predictions, test = True)
     plt.style.use('default')
-    draw(parsed_test, file_output_path)
-    # Delete uploaded file
-    os.remove(file_path)
-    return file_output_path
+    fig=plt.figure(figsize=(12, 20))
+    file_name=draw(parsed_test[test_predictions['patientId'].unique()[0]])
+    return file_name
 
 
 # Callback to grab an image given a local path
@@ -212,6 +363,8 @@ if __name__ == '__main__':
     http_server = WSGIServer(('', 5000), app)
 
     http_server.serve_forever()
+
+# In[ ]:
 
 
 
