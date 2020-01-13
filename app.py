@@ -1,8 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[1]:
-
 
 
 import numpy as np # linear algebra
@@ -112,7 +107,7 @@ def draw(data):
         rgb = [255, 251, 204] # Just use yellow
         im = overlay_box(im=im, box=box, rgb=rgb, stroke=15)
 
-    file_name = '{}.png'.format(data['dicom'].split('.')[0])
+    file_name = '{}_detected.png'.format(data['dicom'].split('.')[0])
     cv2.imwrite(file_name, im)
     plt.imshow(im, cmap=plt.cm.gist_gray)
     plt.axis('off')
@@ -300,7 +295,7 @@ def predict():
             # resize predicted mask
             pred = resize(pred, (1024, 1024), mode='reflect')
             # threshold predicted mask
-            comp = pred[:, :, 0] > -1
+            comp = pred[:, :, 0] > 0.3
             # apply connected components
             comp = measure.label(comp)
             # apply bounding boxes
@@ -338,12 +333,25 @@ def predict():
 @app.route('/predict', methods=['GET', 'POST'])
 def make_preds():
     test_predictions = predict()
-    test_predictions['Target'].values[test_predictions['Target'].values > 0.5] = 1
-    parsed_test= parse_data(test_predictions, test = True)
-    plt.style.use('default')
-    fig=plt.figure(figsize=(12, 20))
-    file_name=draw(parsed_test[test_predictions['patientId'].unique()[0]])
-    return file_name
+    if test_predictions['Target'].any():
+        test_predictions['Target'].values[test_predictions['Target'].values > 0.3] = 1        
+        print('Pneumonia positive')
+        parsed_test= parse_data(test_predictions, test = True)
+        plt.style.use('default')
+        fig=plt.figure(figsize=(12, 20))
+        file_name=draw(parsed_test[test_predictions['patientId'].unique()[0]])
+        return file_name
+    else:
+        f = request.files['file']
+        basepath = os.path.dirname(__file__)
+        file_path = os.path.join(basepath, 'uploads', secure_filename(f.filename))
+        d = pydicom.read_file(file_path)
+        im = d.pixel_array
+        file_name = "uploads/{}_No detection.png".format(secure_filename(f.filename).split('.')[0])
+        cv2.imwrite(file_name, im)
+        plt.imshow(im, cmap=plt.cm.gist_gray)
+        return file_name
+
 
 
 # Callback to grab an image given a local path
