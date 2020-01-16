@@ -380,7 +380,7 @@ def get_image(request):
     
 
 if __name__ == '__main__':
-    app.run(host='127.0.0.1', port=80, debug=True, access_log=False, workers=1)
+    app.run(host='127.0.0.1', port=5000, debug=True, access_log=False, workers=1)
 
 # In[ ]:
 
