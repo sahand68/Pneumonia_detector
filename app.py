@@ -33,7 +33,6 @@ def index():
 # In[4]:
 
 
-# Forked from `https://www.kaggle.com/peterchang77/exploratory-data-analysis`
 def parse_data(df, test = False):
     """
     Method to read a CSV file (Pandas dataframe) and parse the 
