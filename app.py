@@ -13,7 +13,7 @@ from skimage import measure
 from skimage.transform import resize
 import csv
 import random
-from flask import Flask, redirect, url_for, request, render_template, send_file
+from flask import Flask, redirect, url_for, request, render_template, send_file, jsonify
 from gevent.pywsgi import WSGIServer
 import cv2
 from werkzeug.utils import secure_filename
@@ -331,6 +331,7 @@ def predict():
 @app.route('/predict', methods=['GET', 'POST'])
 def make_preds():
     test_predictions = predict()
+    status = 'detected.'
     if test_predictions['Target'].any():
         test_predictions['Target'].values[test_predictions['Target'].values > 0.3] = 1        
         print('Pneumonia positive')
@@ -338,8 +339,8 @@ def make_preds():
         plt.style.use('default')
         fig=plt.figure(figsize=(12, 20))
         file_name=draw(parsed_test[test_predictions['patientId'].unique()[0]])
-        return file_name
     else:
+        status = 'not detected.'
         f = request.files['file']
         basepath = os.path.dirname(__file__)
         file_path = os.path.join(basepath, 'uploads', secure_filename(f.filename))
@@ -348,7 +349,11 @@ def make_preds():
         file_name = "uploads/{}.png".format(secure_filename(f.filename).split('.')[0])
         cv2.imwrite(file_name, im)
         plt.imshow(im, cmap=plt.cm.gist_gray)
-        return file_name
+    return jsonify({
+        'file_name': file_name,
+        'status': status,
+        # 'confidence': confidence
+    })
 
 
 

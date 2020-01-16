@@ -9,8 +9,8 @@ $(document).ready(function () {
             var reader = new FileReader();
             reader.onload = function (e) {
                 $('#imagePreview').css('background-image', 'url(' + e.target.result + ')');
-                $('#imagePreview').hide();
-                $('#imagePreview').fadeIn(650);
+                // $('#imagePreview').hide();
+                // $('#imagePreview').fadeIn(650);
             }
             reader.readAsDataURL(input.files[0]);
         }
@@ -43,11 +43,11 @@ $(document).ready(function () {
             success: function (data) {
                 // Get and display the result
                 $('.loader').hide();
-                $('#imagePreviewResult').css('background-image', 'url(/get_image?p=' + data + ')');
+                $('#imagePreviewResult').css('background-image', 'url(/get_image?p=' + data.file_name + ')');
+                document.getElementById('message').innerText = 'A potential case was ' + data.status
                 $('#imagePreviewResult').hide();
                 $('.image-section-result').show();
                 $('#imagePreviewResult').fadeIn(650); 
-                console.log('Success!');
             },
         });
     });

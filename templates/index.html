@@ -1,6 +1,6 @@
 {% extends "base.html" %} {% block content %}
 
-<h2>Pneumonia Detector</h2>
+<h2>DICOM Analyzer</h2>
 
 <div>
     <form id="upload-file" method="post" enctype="multipart/form-data">
@@ -11,7 +11,7 @@
     </form>
 
     <div class="image-section" style="display:none;">
-        <div class="img-preview">
+        <div class="img-preview image-input">
             <div id="imagePreview">
             </div>
         </div>
@@ -21,6 +21,7 @@
     </div>
 
     <div class="loader" style="display:none;"></div>
+    <div id="message"></div>
     <div class="image-section-result" style="display:none;">
         <div class="img-preview">
             <div id="imagePreviewResult">

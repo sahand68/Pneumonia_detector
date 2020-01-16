@@ -1,5 +1,9 @@
+.image-input {
+    display: none;
+}
+
 .img-preview {
-    width: 152px;
+    /* width: 152px; */
     height: 632px;
     position: relative;
     border: 5px solid #F8F8F8;
@@ -11,7 +15,7 @@
 .img-preview>div {
     width: 100%;
     height: 100%;
-    background-size: 152px 632px;
+    background-size: contain;
     background-repeat: no-repeat;
     background-position: center;
 }
