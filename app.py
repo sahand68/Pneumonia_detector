@@ -13,20 +13,31 @@ from skimage import measure
 from skimage.transform import resize
 import csv
 import random
-from flask import Flask, redirect, url_for, request, render_template, send_file, jsonify
+# from flask import Flask, redirect, url_for, request, render_template, send_file, jsonify
 from gevent.pywsgi import WSGIServer
 import cv2
 from werkzeug.utils import secure_filename
 
+from jinja2 import Environment, FileSystemLoader
+
+env = Environment(loader=FileSystemLoader(['./templates']))
+
+from sanic import Sanic, response
+app = Sanic(__name__)
+
+app.static('/static', './static')
+
 # Any results you write to the current directory are saved as output.
 
 # Define a flask app
-app = Flask(__name__)
 
 @app.route('/', methods=['GET'])
-def index():
+def index(request):
+    data = {'name': 'name'}
+    template = env.get_template('index.html')
+    html_content = template.render(name=data["name"])
     # Main page
-    return render_template('index.html')
+    return response.html(html_content)
 
 
 
@@ -268,13 +279,14 @@ def create_network(input_size, channels, n_blocks=2, depth=5):
 # In[9]:
 
 
-def predict():
-    f = request.files['file']
+def predict(request):
+    f = request.files.get('file')
 
     # Save the file to ./uploads
     basepath = os.path.dirname(__file__)
-    file_path = os.path.join(basepath, 'uploads', secure_filename(f.filename))
-    f.save(file_path)
+    file_path = os.path.join(basepath, 'uploads', secure_filename(f.name))
+    write = open(file_path, 'wb')
+    write.write(f.body)
     k_=[]
     x_= []
     y_ =[]
@@ -283,7 +295,7 @@ def predict():
     t_= []
     area = []
     # create test generator with predict flag set to True
-    test_gen = generator('uploads' ,[f.filename], None, batch_size=1, image_size=512, shuffle=False, predict=True)
+    test_gen = generator('uploads' ,[f.name], None, batch_size=1, image_size=512, shuffle=False, predict=True)
     for imgs, filenames in test_gen:
         # predict batch of images
         model = create_network(input_size=512, channels=32, n_blocks=2, depth=4)
@@ -329,8 +341,8 @@ def predict():
 # In[ ]:
 
 @app.route('/predict', methods=['GET', 'POST'])
-def make_preds():
-    test_predictions = predict()
+def make_preds(request):
+    test_predictions = predict(request)
     status = 'detected.'
     if test_predictions['Target'].any():
         test_predictions['Target'].values[test_predictions['Target'].values > 0.3] = 1        
@@ -341,15 +353,15 @@ def make_preds():
         file_name=draw(parsed_test[test_predictions['patientId'].unique()[0]])
     else:
         status = 'not detected.'
-        f = request.files['file']
+        f = request.files.get('file')
         basepath = os.path.dirname(__file__)
-        file_path = os.path.join(basepath, 'uploads', secure_filename(f.filename))
+        file_path = os.path.join(basepath, 'uploads', secure_filename(f.name))
         d = pydicom.read_file(file_path)
         im = d.pixel_array
-        file_name = "uploads/{}.png".format(secure_filename(f.filename).split('.')[0])
+        file_name = "uploads/{}.png".format(secure_filename(f.name).split('.')[0])
         cv2.imwrite(file_name, im)
         plt.imshow(im, cmap=plt.cm.gist_gray)
-    return jsonify({
+    return response.json({
         'file_name': file_name,
         'status': status,
         # 'confidence': confidence
@@ -359,21 +371,16 @@ def make_preds():
 
 # Callback to grab an image given a local path
 @app.route('/get_image')
-def get_image():
+def get_image(request):
     path = request.args.get('p')
     _, ext = os.path.splitext(path)
     exists = os.path.isfile(path)
     if exists:
-        return send_file(path, mimetype='image/' + ext[1:])
+        return response.file(path, mime_type='image/' + ext[1:])
     
 
 if __name__ == '__main__':
-    # Serve the app with gevent
-    app.run(debug=True)
-
-    http_server = WSGIServer(('', 5000), app)
-
-    http_server.serve_forever()
+    app.run(host='127.0.0.1', port=80, debug=True, access_log=False, workers=1)
 
 # In[ ]:
 
