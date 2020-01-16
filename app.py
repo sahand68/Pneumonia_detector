@@ -347,7 +347,7 @@ def make_preds():
         file_path = os.path.join(basepath, 'uploads', secure_filename(f.filename))
         d = pydicom.read_file(file_path)
         im = d.pixel_array
-        file_name = "uploads/{}_No detection.png".format(secure_filename(f.filename).split('.')[0])
+        file_name = "uploads/{}.png".format(secure_filename(f.filename).split('.')[0])
         cv2.imwrite(file_name, im)
         plt.imshow(im, cmap=plt.cm.gist_gray)
         return file_name
@@ -362,7 +362,7 @@ def get_image():
     exists = os.path.isfile(path)
     if exists:
         return send_file(path, mimetype='image/' + ext[1:])
-
+    
 
 if __name__ == '__main__':
     # Serve the app with gevent
