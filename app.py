@@ -275,8 +275,6 @@ def predict():
     basepath = os.path.dirname(__file__)
     file_path = os.path.join(basepath, 'uploads', secure_filename(f.filename))
     f.save(file_path)
-    test_filenames = os.listdir('uploads')
-    print(test_filenames)
     k_=[]
     x_= []
     y_ =[]
@@ -285,7 +283,7 @@ def predict():
     t_= []
     area = []
     # create test generator with predict flag set to True
-    test_gen = generator('uploads' ,test_filenames, None, batch_size=1, image_size=512, shuffle=False, predict=True)
+    test_gen = generator('uploads' ,[f.filename], None, batch_size=1, image_size=512, shuffle=False, predict=True)
     for imgs, filenames in test_gen:
         # predict batch of images
         model = create_network(input_size=512, channels=32, n_blocks=2, depth=4)
