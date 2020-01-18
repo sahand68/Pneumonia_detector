@@ -1,6 +1,6 @@
 Werkzeug
-Flask
 numpy
+Jinja2
 pydicom
 gevent
 pillow
@@ -10,3 +10,4 @@ opencv-contrib-python
 tensorflow
 matplotlib
 pandas
+sanic
