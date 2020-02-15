@@ -34,7 +34,7 @@ $(document).ready(function () {
         // Make prediction by calling api /predict
         $.ajax({
             type: 'POST',
-            url: '/predict',
+            url: 'pneumonia/predict',
             data: form_data,
             contentType: false,
             cache: false,
@@ -43,7 +43,7 @@ $(document).ready(function () {
             success: function (data) {
                 // Get and display the result
                 $('.loader').hide();
-                $('#imagePreviewResult').css('background-image', 'url(/get_image?p=' + data.file_name + ')');
+                $('#imagePreviewResult').css('background-image', 'url(pneumonia/get_image?p=' + data.file_name + ')');
                 document.getElementById('message').innerText = 'A potential case was ' + data.status
                 $('#imagePreviewResult').hide();
                 $('.image-section-result').show();

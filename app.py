@@ -25,13 +25,13 @@ env = Environment(loader=FileSystemLoader(['./templates']))
 from sanic import Sanic, response
 app = Sanic(__name__)
 
-app.static('/static', './static')
+app.static('/pneumonia/static', './static')
 
 # Any results you write to the current directory are saved as output.
 
 # Define a flask app
 
-@app.route('/', methods=['GET'])
+@app.route('/pneumonia', methods=['GET'])
 def index(request):
     data = {'name': 'name'}
     template = env.get_template('index.html')
@@ -339,7 +339,7 @@ def predict(request):
 
 # In[ ]:
 
-@app.route('/predict', methods=['GET', 'POST'])
+@app.route('/pneumonia/predict', methods=['GET', 'POST'])
 def make_preds(request):
     test_predictions = predict(request)
     status = 'detected.'
@@ -369,7 +369,7 @@ def make_preds(request):
 
 
 # Callback to grab an image given a local path
-@app.route('/get_image')
+@app.route('/pneumonia/get_image')
 def get_image(request):
     path = request.args.get('p')
     _, ext = os.path.splitext(path)
