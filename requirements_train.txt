@@ -1,0 +1,9 @@
+numpy
+pydicom
+pillow
+h5py
+scikit-image
+opencv-contrib-python
+tensorflow-gpu
+matplotlib
+pandas
