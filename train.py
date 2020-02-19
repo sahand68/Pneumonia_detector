@@ -189,19 +189,19 @@ def mean_iou(y_true, y_pred):
     return tf.reduce_mean((intersect + smooth) / (union - intersect + smooth))
 
 
-with tf.device("/gpu:0"):
+
 # create network and compiler
-    model = create_network(input_size=256, channels=32, n_blocks=2, depth=4)
-    model.compile(optimizer=tf.keras.optimizers.Adam(lr=.01),loss=tf.keras.losses.binary_crossentropy,metrics=['accuracy', mean_iou])
-    #model.load_weights("model/model.h5")
-    # create train and validation generators
-    folder = 'data/stage_2_train_images'
-    train_gen = generator(folder, train_filenames, nodule_locations, batch_size=32, image_size=256, shuffle=True, augment=True, predict=False)
-    valid_gen = generator(folder, valid_filenames, nodule_locations, batch_size=32, image_size=256, shuffle=False, predict=False)
+model = create_network(input_size=256, channels=32, n_blocks=2, depth=4)
+model.compile(optimizer=tf.keras.optimizers.Adam(lr=.01),loss=tf.keras.losses.binary_crossentropy,metrics=['accuracy', mean_iou])
+#model.load_weights("model/model.h5")
+# create train and validation generators
+folder = 'data/stage_2_train_images'
+train_gen = generator(folder, train_filenames, nodule_locations, batch_size=32, image_size=256, shuffle=True, augment=True, predict=False)
+valid_gen = generator(folder, valid_filenames, nodule_locations, batch_size=32, image_size=256, shuffle=False, predict=False)
 
-    history = model.fit_generator(train_gen, validation_data=valid_gen, epochs=45, shuffle=True, verbose=1)
+history = model.fit_generator(train_gen, validation_data=valid_gen, epochs=45, shuffle=True, verbose=1)
 
-    model.save("model/model.h5")
+model.save("model/model.h5")
 
 
 
