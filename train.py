@@ -146,23 +146,23 @@ class generator(tf.keras.utils.Sequence):
 def create_downsample(channels, inputs):
     x = tf.keras.layers.BatchNormalization()(inputs)
     x = tf.keras.layers.LeakyReLU(0)(x)
-    x = tf.keras.layers.Conv2D(channels, 1, padding='same', use_bias=False, data_format='channels_first')(x)
+    x = tf.keras.layers.Conv2D(channels, 1, padding='same', use_bias=False)(x)
     x = tf.keras.layers.MaxPool2D(2)(x)
     return x
 
 def create_resblock(channels, inputs):
     x = tf.keras.layers.BatchNormalization()(inputs)
     x = tf.keras.layers.LeakyReLU(0)(x)
-    x = tf.keras.layers.Conv2D(channels, 3, padding='same', use_bias=False,data_format='channels_first')(x)
+    x = tf.keras.layers.Conv2D(channels, 3, padding='same', use_bias=False)(x)
     x = tf.keras.layers.BatchNormalization()(x)
     x = tf.keras.layers.LeakyReLU(0)(x)
-    x = tf.keras.layers.Conv2D(channels, 3, padding='same', use_bias=False,data_format='channels_first')(x)
+    x = tf.keras.layers.Conv2D(channels, 3, padding='same', use_bias=False)(x)
     return tf.keras.layers.add([x, inputs])
 
 def create_network(input_size, channels, n_blocks=2, depth=5):
     # input
     inputs = tf.keras.Input(shape=(input_size, input_size, 1))
-    x = tf.keras.layers.Conv2D(channels, 3, padding='same', use_bias=False, data_format='channels_first')(inputs)
+    x = tf.keras.layers.Conv2D(channels, 3, padding='same', use_bias=False)(inputs)
     # residual blocks
     for d in range(depth):
         channels = channels * 2
@@ -190,9 +190,9 @@ def mean_iou(y_true, y_pred):
 
 with tf.device("/gpu:0"):
 # create network and compiler
-    model = create_network(input_size=256, channels=32, n_blocks=2, depth=4)
+    model = create_network(input_size=512, channels=32, n_blocks=2, depth=4)
     model.compile(optimizer=tf.keras.optimizers.Adam(lr=.01),loss=tf.keras.losses.binary_crossentropy,metrics=['accuracy', mean_iou])
-    model.load_weights("model/model.h5")
+    #model.load_weights("model/model.h5")
     # create train and validation generators
     folder = 'data/stage_2_train_images'
     train_gen = generator(folder, train_filenames, nodule_locations, batch_size=32, image_size=256, shuffle=True, augment=True, predict=False)
