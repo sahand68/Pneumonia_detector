@@ -11,7 +11,8 @@ import csv
 import random
 import tensorflow as tf
 import preprocess
-
+from tensorflow.keras import backend as K
+K.set_image_dim_ordering('th')
 
 train_images_dir = 'data/stage_2_train_images'  #train path
 train_images = [f for f in os.listdir(train_images_dir) if isfile(join(train_images_dir, f))]
@@ -190,7 +191,7 @@ def mean_iou(y_true, y_pred):
 
 with tf.device("/gpu:0"):
 # create network and compiler
-    model = create_network(input_size=512, channels=32, n_blocks=2, depth=4)
+    model = create_network(input_size=256, channels=32, n_blocks=2, depth=4)
     model.compile(optimizer=tf.keras.optimizers.Adam(lr=.01),loss=tf.keras.losses.binary_crossentropy,metrics=['accuracy', mean_iou])
     #model.load_weights("model/model.h5")
     # create train and validation generators
