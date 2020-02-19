@@ -5,7 +5,6 @@ import pydicom
 import os
 from os import listdir
 from os.path import isfile, join
-from skimage import measure
 from skimage.transform import resize
 import csv
 import random
