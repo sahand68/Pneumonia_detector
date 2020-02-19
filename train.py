@@ -11,8 +11,8 @@ import csv
 import random
 import tensorflow as tf
 import preprocess
-from tensorflow.keras import backend as K
-K.set_image_dim_ordering('th')
+tf.keras.backend.image_data_format("channels_first")
+
 
 train_images_dir = 'data/stage_2_train_images'  #train path
 train_images = [f for f in os.listdir(train_images_dir) if isfile(join(train_images_dir, f))]
