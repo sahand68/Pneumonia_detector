@@ -11,7 +11,7 @@ import csv
 import random
 import tensorflow as tf
 import preprocess
-tf.keras.backend.set_image_data_format("channel_last")
+tf.keras.backend.set_image_data_format('channels_last')
 
 
 train_images_dir = 'data/stage_2_train_images'  #train path
