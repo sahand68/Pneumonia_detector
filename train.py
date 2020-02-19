@@ -146,23 +146,23 @@ class generator(tf.keras.utils.Sequence):
 def create_downsample(channels, inputs):
     x = tf.keras.layers.BatchNormalization()(inputs)
     x = tf.keras.layers.LeakyReLU(0)(x)
-    x = tf.keras.layers.Conv2D(channels, 1, padding='same', use_bias=False)(x)
+    x = tf.keras.layers.Conv2D(channels, 1, padding='same', use_bias=False, data_format='channels_first')(x)
     x = tf.keras.layers.MaxPool2D(2)(x)
     return x
 
 def create_resblock(channels, inputs):
     x = tf.keras.layers.BatchNormalization()(inputs)
     x = tf.keras.layers.LeakyReLU(0)(x)
-    x = tf.keras.layers.Conv2D(channels, 3, padding='same', use_bias=False)(x)
+    x = tf.keras.layers.Conv2D(channels, 3, padding='same', use_bias=False,data_format='channels_first')(x)
     x = tf.keras.layers.BatchNormalization()(x)
     x = tf.keras.layers.LeakyReLU(0)(x)
-    x = tf.keras.layers.Conv2D(channels, 3, padding='same', use_bias=False)(x)
+    x = tf.keras.layers.Conv2D(channels, 3, padding='same', use_bias=False,data_format='channels_first')(x)
     return tf.keras.layers.add([x, inputs])
 
 def create_network(input_size, channels, n_blocks=2, depth=5):
     # input
     inputs = tf.keras.Input(shape=(input_size, input_size, 1))
-    x = tf.keras.layers.Conv2D(channels, 3, padding='same', use_bias=False)(inputs)
+    x = tf.keras.layers.Conv2D(channels, 3, padding='same', use_bias=False, data_format='channels_first')(inputs)
     # residual blocks
     for d in range(depth):
         channels = channels * 2
