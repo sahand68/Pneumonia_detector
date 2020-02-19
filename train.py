@@ -199,7 +199,7 @@ with tf.device("/gpu:0"):
     train_gen = generator(folder, train_filenames, nodule_locations, batch_size=32, image_size=256, shuffle=True, augment=True, predict=False)
     valid_gen = generator(folder, valid_filenames, nodule_locations, batch_size=32, image_size=256, shuffle=False, predict=False)
 
-    history = model.fit_generator(train_gen, validation_data=valid_gen, epochs=45, shuffle=True, verbose=1)
+    history = model.fit(train_gen, validation_data=valid_gen, epochs=45, shuffle=True, verbose=1)
 
     model.save("model/model.h5")
 
