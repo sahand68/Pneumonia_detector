@@ -1,7 +1,5 @@
 numpy
 pydicom
-scikit-image
 opencv-contrib-python
-tensorflow-gpu
 matplotlib
 pandas
