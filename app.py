@@ -25,13 +25,13 @@ env = Environment(loader=FileSystemLoader(['./templates']))
 from sanic import Sanic, response
 app = Sanic(__name__)
 
-app.static('/pneumonia/static', './static')
-
+app.static('pneumonia/static', './static')
 # Any results you write to the current directory are saved as output.
 
 # Define a flask app
 
 @app.route('/pneumonia', methods=['GET'])
+
 def index(request):
     data = {'name': 'name'}
     template = env.get_template('index.html')
