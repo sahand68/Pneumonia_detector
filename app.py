@@ -30,7 +30,7 @@ app.static('pneumonia/static', './static')
 
 # Define a flask app
 
-@app.route('/pneumonia', methods=['GET'])
+@app.route('/', methods=['GET'])
 
 def index(request):
     data = {'name': 'name'}
